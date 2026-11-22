@@ -1,0 +1,58 @@
+name: Release
+
+# Publica en npm cuando se empuja un tag v* (o a mano desde Actions).
+#
+# Requiere un secret NPM_TOKEN del tipo "Automation" (npmjs.com -> Access
+# Tokens). Si la cuenta tiene 2FA obligatorio para publicar, el token de
+# automatizacion es la unica forma de publicar sin tipear el codigo cada vez.
+#
+# Publica con provenance: npm firma de donde salio el paquete, asi que queda
+# verificable que este tarball se construyo desde este repo y este commit.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # necesario para la provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Verificar que el tag coincida con la version del package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "El tag ($TAG) no coincide con la version del package.json ($PKG)."
+            exit 1
+          fi
+
+      - name: Publicar
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
