@@ -8,7 +8,7 @@ Está pensado para lo que suele salir mal en producción, no sólo para el camin
 npm install arca-wsfe
 ```
 
-Node >= 20. Sin dependencias de base de datos: la persistencia entra por interfaces.
+Node >= 22.19 (lo exige `undici`, que es necesario para el ajuste de TLS del endpoint de producción). Sin dependencias de base de datos: la persistencia entra por interfaces.
 
 ---
 

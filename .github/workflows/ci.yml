@@ -12,7 +12,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["20", "22", "24"]
+        # Node 20 quedo fuera: undici 8 exige >= 22.19 (usa descompresion zstd)
+        # y Node 20 llego a fin de soporte en abril de 2026.
+        node: ["22", "24"]
 
     steps:
       - uses: actions/checkout@v5
