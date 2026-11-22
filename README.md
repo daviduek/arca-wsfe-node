@@ -296,6 +296,17 @@ Lo que le pedís a cada cliente es: delegar *Facturación Electrónica* a **tu**
 
 > **Si publicás una guía o un onboarding basado en esto, poné tu propio CUIT.** Quien siga esas instrucciones va a delegarte el servicio a vos: quedás vinculado a su CUIT en ARCA y habilitado a emitir comprobantes en su nombre. No copies el CUIT de otro integrador.
 
+### Lo que tenés que saber antes de operar como plataforma
+
+Este modelo es cómodo para el cliente y concentra riesgo en vos. Cuatro cosas, en orden de importancia:
+
+1. **Tu certificado es una llave maestra.** Uno solo puede emitir en nombre de *todos* los CUITs que te delegaron. Si se filtra, el daño es colectivo y no hay forma de limitarlo por cliente. Guardalo cifrado, fuera del repo y fuera de las variables de build; rotalo; y tratá su clave privada como tratarías la de tu propia identidad fiscal.
+2. **No uses tu CUIT personal.** Usá el de una sociedad. Es lo que separa tu patrimonio del riesgo operativo del servicio, y cambiar el CUIT de plataforma después es caro: las delegaciones apuntan a un CUIT concreto, así que **cada cliente tiene que volver a delegar a mano** (no se migra por API). Decidilo antes de tener clientes.
+3. **En ARCA queda registrado que vos operaste.** Si un cliente emite algo irregular, el rastro técnico pasa por tu CUIT. Guardá por cada emisión quién la pidió, cuándo y con qué datos — el `AttemptStore` ya te da la mitad (CUIT, punto de venta, tipo, número, total, tu `externalId`); sumale el usuario de tu aplicación.
+4. **Dejá por escrito de quién es la responsabilidad fiscal.** El comprobante es del cliente; la plataforma es la herramienta. Y no le pidas nunca la Clave Fiscal: la delegación no la necesita, y pedirla te convierte en custodio de la credencial maestra de otra persona.
+
+Si cualquiera de estos cuatro puntos te incomoda, el otro camino es que **cada cliente use su propio certificado** (`cuit` sin `representedCuit`): tu CUIT no participa en nada y el riesgo vuelve a cada dueño. Se paga en fricción de onboarding.
+
 ---
 
 ## Ejemplo ejecutable

@@ -34,7 +34,14 @@ export { issueVoucher, reconcileAttempt } from "./issue.js";
 export type { IssueContext, IssueInput, IssueResult, ArcaMessage } from "./issue.js";
 
 // WSAA
-export { createTra, getTicket, signTraCms, WSFE_SERVICE } from "./wsaa.js";
+export {
+  CERT_EXPIRY_WARNING_DAYS,
+  assertCertificateUsable,
+  createTra,
+  getTicket,
+  signTraCms,
+  WSFE_SERVICE,
+} from "./wsaa.js";
 export type { ArcaCertificate, GetTicketOptions, Ticket } from "./wsaa.js";
 
 // WSFE

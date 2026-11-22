@@ -20,6 +20,7 @@ import { isoArgentina } from "./dates.js";
 import { soapPost } from "./http.js";
 import { parseSoapBody, parser } from "./xml.js";
 import { noopLogger, type Logger } from "./logger.js";
+import { inspectCertificate, type CertInfo } from "./csr.js";
 import type { Lock, StoredTicket, TicketStore } from "./adapters/types.js";
 
 /** Certificado de ARCA con su clave privada. Material sensible. */
@@ -105,6 +106,42 @@ function fresh(t: StoredTicket | null): Ticket | null {
   };
 }
 
+/** Dias antes del vencimiento a partir de los cuales se avisa por el logger. */
+export const CERT_EXPIRY_WARNING_DAYS = 30;
+
+/**
+ * Valida que el certificado sirva para autenticarse: que la clave privada le
+ * corresponda y que no este vencido. Avisa por el logger si esta por vencer.
+ *
+ * Un certificado vencido corta la emision de golpe, y el error que devuelve
+ * ARCA no menciona el vencimiento, asi que conviene detectarlo de este lado.
+ * Se llama en cada renovacion del Ticket de Acceso, y se puede usar en un
+ * health check.
+ */
+export function assertCertificateUsable(
+  certificate: ArcaCertificate,
+  logger: Logger = noopLogger,
+): CertInfo {
+  const info = inspectCertificate(certificate.certPem, certificate.keyPem);
+  const vence = info.notAfter.toISOString().slice(0, 10);
+
+  if (info.daysToExpiry < 0) {
+    throw new ArcaError(
+      "WSAA_AUTH",
+      `El certificado de ARCA vencio hace ${Math.abs(info.daysToExpiry)} dias (${vence}). Hay que renovarlo en ARCA.`,
+      { certificateId: certificate.id, notAfter: vence },
+    );
+  }
+  if (info.daysToExpiry < CERT_EXPIRY_WARNING_DAYS) {
+    logger("warn", "El certificado de ARCA esta por vencer", {
+      certificateId: certificate.id,
+      daysToExpiry: info.daysToExpiry,
+      notAfter: vence,
+    });
+  }
+  return info;
+}
+
 export interface GetTicketOptions {
   certificate: ArcaCertificate;
   environment: ArcaEnvironment;
@@ -132,6 +169,9 @@ export async function getTicket(o: GetTicketOptions): Promise<Ticket> {
     // Revalidar dentro del lock: otro proceso pudo renovarlo mientras esperabamos.
     const again = fresh(await o.tickets.get(key));
     if (again) return again;
+
+    // Se valida al renovar el TA (dos veces por dia), no en cada request.
+    assertCertificateUsable(o.certificate, log);
 
     const tra = createTra(service);
     const cms = signTraCms(tra, o.certificate.certPem, o.certificate.keyPem);

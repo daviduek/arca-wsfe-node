@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import forge from "node-forge";
-import { createTra, signTraCms } from "../src/wsaa.js";
+import { assertCertificateUsable, createTra, signTraCms } from "../src/wsaa.js";
 import { generateKeyAndCsr, inspectCertificate } from "../src/csr.js";
 
 /** Certificado autofirmado para probar la firma sin pegarle a ARCA. */
-function selfSigned(cuit = "20111111112") {
+function selfSigned(cuit = "20111111112", diasDeVida = 365) {
   const keys = forge.pki.rsa.generateKeyPair(2048);
   const cert = forge.pki.createCertificate();
   cert.publicKey = keys.publicKey;
   cert.serialNumber = "01";
   cert.validity.notBefore = new Date(Date.now() - 86400000);
-  cert.validity.notAfter = new Date(Date.now() + 365 * 86400000);
+  cert.validity.notAfter = new Date(Date.now() + diasDeVida * 86400000);
   const attrs = [
     { name: "countryName", value: "AR" },
     { name: "organizationName", value: "Test" },
@@ -96,5 +96,44 @@ describe("CSR y certificado", () => {
 
     const otro = selfSigned("30111111118");
     expect(() => inspectCertificate(certPem, otro.keyPem)).toThrow(/no corresponde/);
+  });
+});
+
+describe("assertCertificateUsable", () => {
+  /**
+   * Un certificado vencido corta la emision y el error de ARCA no dice que el
+   * problema sea el vencimiento: se detecta de este lado, antes de la red.
+   */
+  it("lanza con un certificado vencido", () => {
+    const { certPem, keyPem } = selfSigned("20111111112", -1); // vencio ayer
+    expect(() => assertCertificateUsable({ id: "vencido", certPem, keyPem })).toThrow(/vencio/);
+  });
+
+  it("avisa por el logger cuando esta por vencer, sin lanzar", () => {
+    const { certPem, keyPem } = selfSigned("20111111112", 10);
+    const avisos: string[] = [];
+    const info = assertCertificateUsable(
+      { id: "porvencer", certPem, keyPem },
+      (level, msg) => {
+        if (level === "warn") avisos.push(msg);
+      },
+    );
+    expect(info.daysToExpiry).toBeLessThan(30);
+    expect(avisos.some((m) => /por vencer/.test(m))).toBe(true);
+  });
+
+  it("no avisa nada con un certificado sano", () => {
+    const { certPem, keyPem } = selfSigned();
+    const avisos: string[] = [];
+    assertCertificateUsable({ id: "sano", certPem, keyPem }, (_l, m) => avisos.push(m));
+    expect(avisos).toEqual([]);
+  });
+
+  it("lanza si la clave no corresponde al certificado", () => {
+    const a = selfSigned();
+    const b = selfSigned("30111111118");
+    expect(() =>
+      assertCertificateUsable({ id: "mezclado", certPem: a.certPem, keyPem: b.keyPem }),
+    ).toThrow(/no corresponde/);
   });
 });
