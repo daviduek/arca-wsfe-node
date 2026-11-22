@@ -1,0 +1,32 @@
+# dependencias y build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ---------------------------------------------------------------------------
+# MATERIAL SENSIBLE: certificados y claves privadas de ARCA.
+# Nunca commitear. Una clave privada filtrada permite autenticarse en ARCA
+# en nombre del CUIT del certificado.
+# ---------------------------------------------------------------------------
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+certs/
+secrets/
+
+# entornos
+.env
+.env.*
+!.env.example
+
+# artefactos de depuracion: pueden contener CUIT, token/sign de TA y XML completos
+artifacts/
+*.log
+
+# sistema
+.DS_Store
+Thumbs.db
+coverage/
